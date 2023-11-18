@@ -1,9 +1,9 @@
 from tkinter import *
 from tkinter import ttk
 from PIL import Image, ImageTk
-import sys
 import numpy as np
 import pygame as pg
+import sys
 import json
 
 class Main:
@@ -13,18 +13,21 @@ class Main:
         self.load_settings()
 
     def create_variables(self):
+        # Initialize variable for game class and menu class
         self.forward_key = StringVar()
         self.right_key = StringVar()
         self.left_key = StringVar()
         self.backward_key = StringVar()
         self.steering = IntVar()
         self.track = IntVar()
-        
+        self.resolution = StringVar()
+        self.show_fps = BooleanVar()
         self.master_sound = IntVar()
         self.engine_sound = IntVar()
         self.tire_sound = IntVar()
         self.music_sound = IntVar()
     
+    # Set variables with value file when start the program
     def load_settings(self):
         try:
             with open("settings.json", "r") as file:
@@ -34,38 +37,49 @@ class Main:
             self.engine_sound.set(settings.get("engine_sound"))
             self.tire_sound.set(settings.get("tire_sound"))
             self.music_sound.set(settings.get("music_sound"))
-            self.forward_key.set(settings.get("forward_key") or "W")
-            self.left_key.set(settings.get("left_key") or "A")
-            self.right_key.set(settings.get("right_key") or "D")
-            self.backward_key.set(settings.get("backward_key") or "S")
+            self.forward_key.set(settings.get("forward_key", "W"))
+            self.left_key.set(settings.get("left_key", "A"))
+            self.right_key.set(settings.get("right_key", "D"))
+            self.backward_key.set(settings.get("backward_key","S"))
             self.steering.set(settings.get("steering"))
-            self.track.set(settings.get("track") or "1")
+            self.track.set(settings.get("track", "1"))
+
+            self.resolution.set(settings.get("resolution", "800x600"))
+            self.show_fps.set(settings.get("fps"))
 
         except FileNotFoundError:
             print("Settings file not found. Using default settings.")
 
+# class consists of game elements, load resources, UI, and handling car
 class Game(Main):
 
-    def __init__(self):
-        Main.__init__(self)
+    def __init__(self, show_fps):
+        super().__init__()
         pg.init()
         pg.mixer.init()
         
+        # Set screen
         self.screen = pg.display.set_mode()
-        self.width, self.height = self.screen.get_size()
+        self.width, self.height = map(int, self.resolution.get().split('x'))
+
         self.running = True
         self.first_crossing = True
 
+        # Variable for render ray tracing
         self.hres = 120
         self.halfvres = self.height // 2  
         self.mod = self.hres / 60
 
+        # variable for car
         self.acceleration = 0
         self.rot_over_time = 0
 
+        # clock
         self.clock = pg.time.Clock()
         self.start_ticks = pg.time.get_ticks()
+        self.show_fps = show_fps
 
+    # Initialize starting point and finish line of each track
     def track_selection(self):
 
         t = self.track.get()
@@ -116,9 +130,17 @@ class Game(Main):
             self.gauge(self.width - 200, self.height - 150)
             self.timer()
             self.minimap()
+            if self.show_fps.get():
+                self.display_fps()
             pg.display.update()
 
         pg.quit()
+
+    def display_fps(self):
+        fps = self.clock.get_fps()
+        font = pg.font.SysFont("Terminal", 30)
+        fps_text = font.render(f"FPS: {int(fps)}", True, pg.Color('white'))
+        self.screen.blit(fps_text, (10, 10))
 
     def car(self):
         offset = 1.5
@@ -184,6 +206,7 @@ class Game(Main):
             if not self.eng_sound.get_num_channels():
                 self.eng_sound.play()
 
+    # Update position of the car
     def update_position(self, et):
         x, y = (
             self.posx + et * np.cos(self.rot) * self.acceleration,
@@ -191,10 +214,12 @@ class Game(Main):
         )
         return x, y
 
+    # limit race area
     def limit_race_area(self, x, y):
         if 1 <= x <= 29 and 1 <= y <= 29:
             self.posx, self.posy = x, y
 
+    # Check track border by using mask picture of track
     def check_track_border(self):
         if self.track_border[int(self.posx * 34.13)][int(self.posy * 34.13)] != 0:
             self.acceleration -= 0.001
@@ -204,6 +229,7 @@ class Game(Main):
             textRect.center = (self.width // 2, self.height // 5)
             self.screen.blit(text, textRect)
 
+    # handling movement of the car
     def movement(self, pressed_keys):
         self.prev_posx, self.prev_posy = self.posx, self.posy
         et = self.clock.tick() / 500
@@ -218,6 +244,7 @@ class Game(Main):
         self.rot += self.rot_over_time * self.acceleration
         self.rot = self.rot % (np.pi * 2)
 
+    #  load all resources pictures and sound file
     def load_resources(self):
         size = (1024, 1024)
         self.track_border = pg.surfarray.array2d(pg.transform.scale(pg.image.load(f"resources/track/{self.track.get()}/mask.png"), size))
@@ -231,6 +258,7 @@ class Game(Main):
         self.tire_screech_sound = pg.mixer.Sound(r"resources\sound\tire.mp3")
         self.eng_sound = pg.mixer.Sound(r"resources\sound\acc_sound.mp3")
 
+    #  Check if coordinate of the car is intersect with finish line
     def check_finish_line(self):
 
         # define the car previous and current positions
@@ -246,6 +274,7 @@ class Game(Main):
                 self.running = False  # stop game
             self.first_crossing = False
 
+    #  For calculating line intersect
     def line_intersects(self, line1_start, line1_end, line2_start, line2_end):
 
         x1, y1 = line1_start
@@ -265,6 +294,7 @@ class Game(Main):
         # Check if intersection point is on both line segments
         return 0 <= t <= 1 and 0 <= u <= 1
 
+    # Save record after finish the game
     def save_record(self):
         time_taken = (pg.time.get_ticks() - self.start_ticks) / 1000
         track_number = self.track.get()
@@ -281,6 +311,7 @@ class Game(Main):
         with open("race_records.json", "w") as file:
             json.dump(records, file, indent=4)
 
+    # check button to exit the game
     def check_events(self):
         for event in pg.event.get():
             if (
@@ -338,6 +369,7 @@ class Game(Main):
         textRect.center = (self.width // 2, self.height // 10)
         self.screen.blit(text, textRect)
 
+    # Creating minimap on screen
     def minimap(self):
         
         minimap = pg.transform.scale(pg.image.load(f"resources/track/{self.track.get()}/minimap.png"), (200,200))
@@ -349,6 +381,7 @@ class Game(Main):
             5,
         )
 
+    # Handling ray tracing
     def surface(self):
         sky = pg.surfarray.array3d(
             pg.transform.scale(self.sky, (360, self.halfvres * 1.5))
@@ -393,9 +426,9 @@ class Menu(Main):
         self.root = Tk()
         super().__init__()
         pg.mixer.init()
+
         self.setup_window()
         self.create_styles()
-        self.bind_events()
         self.adjust_variables()
         self.save_settings()
         self.create_main_menu()
@@ -442,11 +475,6 @@ class Menu(Main):
                 "TNotebook": {"map": {"background": [("selected", "red")]}},
             },
         )
-
-    def bind_events(self):
-        self.root.bind("<Alt_R>", self.AltOn)
-        self.root.bind("<KeyRelease-Alt_R>", self.AltOff)
-        self.root.bind("<Return>", self.changescreen)
 
     def adjust_variables(self):
 
@@ -540,32 +568,40 @@ class Menu(Main):
 
     def create_graphics_tab(self, tab):
 
-        Label(tab, text="Resolution", font=("Terminal", 15)).grid(row=0, column=0, sticky=W, padx=10, pady=10)
-        resolution_var = StringVar()
-        resolution_choices = ["1920x1080", "1280x720", "800x600"]
-        resolution_menu = OptionMenu(tab, resolution_var, *resolution_choices)
+        Label(tab, text="Resolution", font=("Terminal", 15), background="white").grid(row=0, column=0, sticky=W, padx=10, pady=10)
+
+        # List of resolution choices
+        resolution_choices = ["1920x1080", "1280x720", "800x600",f"{self.root.winfo_screenwidth()}x{self.root.winfo_screenheight()}"]
+
+        # Create and place the OptionMenu
+        resolution_menu = OptionMenu(tab, self.resolution, *resolution_choices, command=self.on_resolution_change)
         resolution_menu.grid(row=0, column=1, sticky=W)
 
-        fullscreen_var = BooleanVar()
-        Checkbutton(tab, text="Fullscreen", variable=fullscreen_var).grid(row=1, column=0, sticky=W, padx=10, pady=10)
+        Checkbutton(tab, text="Show FPS", variable=self.show_fps, background="white").grid(row=2, column=0, sticky=W, padx=10, pady=10)
+
+        Button(tab, text="Reset to Default", command=self.reset_graphics_to_default).grid(row=3, column=0, columnspan=2, sticky=W+E, padx=10, pady=10)
+
+    def on_resolution_change(self, event=None):
+        # Save settings whenever the resolution changes
+        self.save_settings()
 
     def create_controls_tab(self, tab):
 
-        Label(tab, text="Key Bindings", font=("Terminal", 15)).grid(row=0, column=0, sticky=W, padx=10, pady=10)
+        Label(tab, text="Key Bindings", font=("Terminal", 15), background="white").grid(row=0, column=0, sticky=W, padx=10, pady=10)
         
-        Label(tab, text="Forward", font=("Terminal", 15)).grid(row=1, column=0, sticky=W, padx=10, pady=10)
+        Label(tab, text="Forward", font=("Terminal", 15), background="white").grid(row=1, column=0, sticky=W, padx=10, pady=10)
         Button(tab, textvariable=self.forward_key, command=lambda: self.set_key_binding(self.forward_key)).grid(row=1, column=1, sticky=W)
 
-        Label(tab, text="Left", font=("Terminal", 15)).grid(row=2, column=0, sticky=W, padx=10, pady=10)
+        Label(tab, text="Left", font=("Terminal", 15), background="white").grid(row=2, column=0, sticky=W, padx=10, pady=10)
         Button(tab, textvariable=self.left_key, command=lambda: self.set_key_binding(self.left_key)).grid(row=2, column=1, sticky=W)
 
-        Label(tab, text="Backward", font=("Terminal", 15)).grid(row=3, column=0, sticky=W, padx=10, pady=10)
+        Label(tab, text="Backward", font=("Terminal", 15), background="white").grid(row=3, column=0, sticky=W, padx=10, pady=10)
         Button(tab, textvariable=self.backward_key, command=lambda: self.set_key_binding(self.backward_key)).grid(row=3, column=1, sticky=W)
 
-        Label(tab, text="Right", font=("Terminal", 15)).grid(row=4, column=0, sticky=W, padx=10, pady=10)
+        Label(tab, text="Right", font=("Terminal", 15), background="white").grid(row=4, column=0, sticky=W, padx=10, pady=10)
         Button(tab, textvariable=self.right_key, command=lambda: self.set_key_binding(self.right_key)).grid(row=4, column=1, sticky=W)
 
-        Button(tab, text="Reset Key Bindings to Default", command=self.reset_key_bindings_to_default).grid(row=7, column=0, columnspan=2, sticky=W+E, padx=10, pady=10)
+        Button(tab, text="Reset to Default", command=self.reset_key_bindings_to_default).grid(row=7, column=0, columnspan=2, sticky=W+E, padx=10, pady=10)
 
     def set_key_binding(self, key_var):
         popup = Toplevel(self.root)
@@ -585,17 +621,19 @@ class Menu(Main):
 
         scale_length = self.width // 2
 
-        Label(tab, text="Master sound", font=("Terminal", 15), background="white").place(x=50, y=80)
-        Scale(tab, from_=0, to=10, variable=self.master_sound, orient=HORIZONTAL, length=scale_length).place(x=200, y=80)
+        Label(tab, text="Master sound", font=("Terminal", 15), background="white").grid(row=1, column=0, sticky=W, padx=10, pady=10)
+        Scale(tab, from_=0, to=10, variable=self.master_sound, orient=HORIZONTAL, length=scale_length).grid(row=1, column=0, sticky=W, padx=10, pady=10)
 
-        Label(tab, text="Tire sound", font=("Terminal", 15), background="white").place(x=50, y=160)
-        Scale(tab, from_=0, to=10, variable=self.tire_sound, orient=HORIZONTAL, length=scale_length).place(x=200, y=160)
+        Label(tab, text="Tire sound", font=("Terminal", 15), background="white").grid(row=2, column=0, sticky=W, padx=10, pady=10)
+        Scale(tab, from_=0, to=10, variable=self.tire_sound, orient=HORIZONTAL, length=scale_length).grid(row=2, column=0, sticky=W, padx=10, pady=10)
 
-        Label(tab, text="Engine sound", font=("Terminal", 15), background="white").place(x=50, y=240)
-        Scale(tab, from_=0, to=10, variable=self.engine_sound, orient=HORIZONTAL, length=scale_length).place(x=200, y=240)
+        Label(tab, text="Engine sound", font=("Terminal", 15), background="white").grid(row=3, column=0, sticky=W, padx=10, pady=10)
+        Scale(tab, from_=0, to=10, variable=self.engine_sound, orient=HORIZONTAL, length=scale_length).grid(row=3, column=0, sticky=W, padx=10, pady=10)
 
-        Label(tab, text="Music", font=("Terminal", 15), background="white").place(x=50, y=320)
-        Scale(tab, from_=0, to=10, variable=self.music_sound, orient=HORIZONTAL, length=scale_length).place(x=200, y=320)
+        Label(tab, text="Music", font=("Terminal", 15), background="white").grid(row=4, column=0, sticky=W, padx=10, pady=10)
+        Scale(tab, from_=0, to=10, variable=self.music_sound, orient=HORIZONTAL, length=scale_length).grid(row=4, column=0, sticky=W, padx=10, pady=10)
+
+        Button(tab, text="Reset to Default", command=self.reset_sounds_to_default).grid(row=5, column=0, sticky=W, padx=10, pady=10)
 
     def adjust_volume(self):
         volume_level = self.music_sound.get() / 10.0 * self.master_sound.get() / 10.0
@@ -608,34 +646,6 @@ class Menu(Main):
         Label(tab, text="Steering\nSensitivity", font=("Terminal", 15), background="white").place(x=50, y=80)
         Scale(tab, from_=0, to=10, variable=self.steering, orient=HORIZONTAL, length=scale_length).place(x=200, y=80)
 
-    def save_settings(self):
-        settings = {
-            "master_sound": self.master_sound.get(),
-            "engine_sound": self.engine_sound.get(),
-            "tire_sound": self.tire_sound.get(),
-            "music_sound": self.music_sound.get(),
-            "forward_key": self.forward_key.get(),
-            "left_key": self.left_key.get(),
-            "right_key": self.right_key.get(),
-            "backward_key": self.backward_key.get(),
-            "steering" : self.steering.get(),
-            "track" : self.track.get()
-        }
-        with open("settings.json", "w") as file:
-            json.dump(settings, file)
-
-    def reset_key_bindings_to_default(self):
-        default_settings = self.read_default_settings()
-        self.forward_key.set(default_settings['forward_key'])
-        self.left_key.set(default_settings['left_key'])
-        self.backward_key.set(default_settings['backward_key'])
-        self.right_key.set(default_settings['right_key'])
-        self.save_settings()
-
-    def read_default_settings():
-        with open("default_settings.json", "r") as file:
-            return json.load(file)
-
     def create_track_selection_screen(self):
         self.track_selection_frame = Frame(self.root, width=self.width, height=self.height)
         
@@ -643,14 +653,14 @@ class Menu(Main):
         self.track_images = []
         for i in range(1, 7):  # Assuming there are 6 tracks
             image = Image.open(f"resources/track/{i}/track.png")
-            resize_image = image.resize((350, 350))  # Resize according to your preference
+            resize_image = image.resize((self.width // 6, self.width // 6))  # Resize according to your preference
             self.track_images.append(ImageTk.PhotoImage(resize_image))
 
         # Create buttons with track map images
         for i, img in enumerate(self.track_images, start=1):
             offset = 550 if i > 3 else 100
-            Label(self.track_selection_frame, text=i, font=("Terminal", 20)).place(x=self.width // 2 - 600 + (i-1)%3 * 400, y=self.height // 10 - 50 + offset)
-            Button(self.track_selection_frame, image=img, command=lambda track_no=i: self.load_game(track_no)).place(x=self.width // 2 - 600 + (i-1)%3 * 400, y=self.height // 10 + offset)
+            Label(self.track_selection_frame, text=i, font=("Terminal", 20)).place(x=self.width // 2 - 500 + (i-1)%3 * 400, y=self.height // 10 - 50 + offset)
+            Button(self.track_selection_frame, image=img, command=lambda track_no=i: self.load_game(track_no)).place(x=self.width // 2 - 500 + (i-1)%3 * 400, y=self.height // 10 + offset)
 
         Button(self.track_selection_frame, text="To main menu", font=("Terminal", 25), command=self.back_to_main_menu).place(x=50, y=50)
     
@@ -676,9 +686,13 @@ class Menu(Main):
             return {str(i): [] for i in range(1, 7)}  # Assuming there are 3 tracks
 
     def create_records(self):
+
+        style = ttk.Style()
+        style.theme_settings("default", {"TNotebook.Tab": {"configure": {"padding": [self.width // 6 - 160, 20]}}})
+
         self.records_frame = Frame(self.root, width=self.width, height=self.height)
-        self.records_tab = ttk.Notebook(self.records_frame, width=self.width-300, height=self.height-200)
-        self.records_tab.place(x=140, y=130)
+        self.records_tab = ttk.Notebook(self.records_frame,  width=self.width-300, height=self.height-300)
+        self.records_tab.place(x=50, y=130)
 
         # Checkbox for sorting
         self.sort_var = BooleanVar()
@@ -694,7 +708,7 @@ class Menu(Main):
     def create_record_tables(self):
         records_data = self.load_records()
         for track_number, records in records_data.items():
-            tab = ttk.Frame(self.records_tab)
+            tab = ttk.Frame(self.records_tab, width=10)
             table = self.create_record_table(tab, records)
             self.tables[track_number] = table  # Store the table for later use
             self.records_tab.add(tab, text=f"Track {track_number}")
@@ -707,18 +721,19 @@ class Menu(Main):
             self.update_tableview(table, records, sort)
 
     def create_record_table(self, tab, records):
+
         # Configure the Treeview style
         style = ttk.Style()
-        style.configure("Treeview.Heading", font=("Terminal", 20))
-        style.configure("Treeview", font=("Terminal", 20))
+        style.configure("Treeview.Heading", font=("Terminal", 15), padding=[10,4])
+        style.configure("Treeview", font=("Terminal", 15), padding=[10,4])
 
         # Creating the treeview with two columns
         columns = ('#1', '#2')
         table = ttk.Treeview(tab, columns=columns, show='headings')
         table.heading('#1', text='nth played')
         table.heading('#2', text='Time (seconds)')
-        table.column('#1', anchor=CENTER, width=100)
-        table.column('#2', anchor=CENTER, width=100)
+        table.column('#1', anchor=CENTER, width=50)
+        table.column('#2', anchor=CENTER, width=50)
 
         for index, record in enumerate(records, start=1):
             table.insert('', 'end', values=(index, f"{record:.2f}"))
@@ -728,8 +743,12 @@ class Menu(Main):
 
     def update_tableview(self, table, records, sort=False):
         table.delete(*table.get_children())  # Clear existing rows
-        sorted_records = sorted(records, key=lambda x: x) if sort else records
-        for index, record in enumerate(sorted_records, start=1):
+
+        indexed_records = [(index, record) for index, record in enumerate(records, start=1)]
+        if sort:
+            indexed_records.sort(key=lambda x: x[1])
+
+        for index, record in indexed_records:
             table.insert('', 'end', values=(index, f"{record:.2f}"))
 
     def show_records(self):
@@ -740,10 +759,59 @@ class Menu(Main):
         self.records_frame.pack_forget()
         self.cv.pack()
 
+    def save_settings(self):
+        settings = {
+            "master_sound": self.master_sound.get(),
+            "engine_sound": self.engine_sound.get(),
+            "tire_sound": self.tire_sound.get(),
+            "music_sound": self.music_sound.get(),
+            "forward_key": self.forward_key.get(),
+            "left_key": self.left_key.get(),
+            "right_key": self.right_key.get(),
+            "backward_key": self.backward_key.get(),
+            "steering": self.steering.get(),
+            "track": self.track.get(),
+            "resolution": self.resolution.get(),
+            "fps": self.show_fps.get()
+        }
+        with open("settings.json", "w") as file:
+            json.dump(settings, file)
+
+    def read_default_settings(self):
+        try:
+            with open("default_settings.json", "r") as file:
+                return json.load(file)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Error reading default settings: {e}")
+            return None  # Or set some hardcoded defaults
+        
+    def reset_graphics_to_default(self):
+        default_settings = self.read_default_settings()
+        if default_settings:
+            self.resolution.set(default_settings["resolution"])
+            self.show_fps.set(default_settings["fps"])
+            self.save_settings()
+
+    def reset_key_bindings_to_default(self):
+        default_settings = self.read_default_settings()
+        self.forward_key.set(default_settings['forward_key'])
+        self.left_key.set(default_settings['left_key'])
+        self.backward_key.set(default_settings['backward_key'])
+        self.right_key.set(default_settings['right_key'])
+        self.save_settings()
+        
+    def reset_sounds_to_default(self):
+        default_settings = self.read_default_settings()
+        self.master_sound.set(default_settings["master_sound"])
+        self.tire_sound.set(default_settings["tire_sound"])
+        self.music_sound.set(default_settings["music_sound"])
+        self.engine_sound.set(default_settings["engine_sound"])
+        self.save_settings()
+
 if __name__ == "__main__":
     
     while True:
         menu = Menu()
-        game = Game()
+        game = Game(menu.show_fps)
         menu.run()
         game.run()
