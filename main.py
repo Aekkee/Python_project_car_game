@@ -39,16 +39,86 @@ class Main:
             self.right_key.set(settings.get("right_key") or "D")
             self.backward_key.set(settings.get("backward_key") or "S")
             self.steering.set(settings.get("steering"))
-            self.track.set(settings.get("track"))
+            self.track.set(settings.get("track") or "1")
 
         except FileNotFoundError:
             print("Settings file not found. Using default settings.")
 
-class Car():
+class Game(Main):
 
     def __init__(self):
+        Main.__init__(self)
+        pg.init()
+        pg.mixer.init()
+        
+        self.screen = pg.display.set_mode()
+        self.width, self.height = self.screen.get_size()
+        self.running = True
+        self.first_crossing = True
+
+        self.hres = 120
+        self.halfvres = self.height // 2  
+        self.mod = self.hres / 60
+
         self.acceleration = 0
         self.rot_over_time = 0
+
+        self.clock = pg.time.Clock()
+        self.start_ticks = pg.time.get_ticks()
+
+    def track_selection(self):
+
+        t = self.track.get()
+        if t == 1:
+            self.posx, self.posy, self.rot = 19.7, 18.15, 4.73
+            self.finish_line_start = (18.5, 16)
+            self.finish_line_end = (21, 17)
+        elif t == 2:
+            self.posx, self.posy, self.rot = 25.9, 21.14, 4.73
+            self.finish_line_start = (24.94, 19.5)
+            self.finish_line_end = (27, 18.7)
+        elif t == 2:
+            self.posx, self.posy, self.rot = 25.9, 21.14, 4.73
+            self.finish_line_start = (24.94, 19.5)
+            self.finish_line_end = (27, 18.7)
+        elif t == 3:
+            self.posx, self.posy, self.rot = 27.11, 17.37, 4.9
+            self.finish_line_start = (28.33, 15.61)
+            self.finish_line_end = (26.54, 15.33)
+        elif t == 4:
+            self.posx, self.posy, self.rot = 27.31, 17.56, 4.74
+            self.finish_line_start = (28.95, 15)
+            self.finish_line_end = (26.38, 15.54)
+        elif t == 5:
+            self.posx, self.posy, self.rot = 25.58, 17.4, 4.74
+            self.finish_line_start = (24.68, 15.08)
+            self.finish_line_end = (26.45, 15.3)
+        elif t == 6:
+            self.posx, self.posy, self.rot = 11.21, 15.47, 0.013
+            self.finish_line_start = (13.24, 14.75)
+            self.finish_line_end = (13.43, 16.23)
+        self.prev_posx, self.prev_posy = self.posx, self.posy
+
+    def run(self):
+
+        self.load_settings()
+        self.track_selection()
+        self.load_resources()
+        self.start_sound.play()
+
+        while self.running:
+            pressed_keys = pg.key.get_pressed()
+            self.check_events()
+            self.surface()
+            self.check_finish_line()
+            self.car()
+            self.movement(pressed_keys)
+            self.gauge(self.width - 200, self.height - 150)
+            self.timer()
+            self.minimap()
+            pg.display.update()
+
+        pg.quit()
 
     def car(self):
         offset = 1.5
@@ -148,89 +218,14 @@ class Car():
         self.rot += self.rot_over_time * self.acceleration
         self.rot = self.rot % (np.pi * 2)
 
-class Game(Car, Main):
-
-    def __init__(self):
-        Car.__init__(self)
-        Main.__init__(self)
-        pg.init()
-        pg.mixer.init()
-        
-        self.screen = pg.display.set_mode()
-        self.width, self.height = self.screen.get_size()
-        self.running = True
-        self.first_crossing = True
-   
-        self.hres = 120
-        self.halfvres = self.height // 2  
-        self.mod = self.hres / 60
-
-        self.clock = pg.time.Clock()
-        self.start_ticks = pg.time.get_ticks()
-
-    def track_selection(self):
-
-        t = self.track.get()
-        if t == 1:
-            self.posx, self.posy, self.rot = 19.7, 18.15, 4.73
-            self.finish_line_start = (18.5, 16)
-            self.finish_line_end = (21, 17)
-        elif t == 2:
-            self.posx, self.posy, self.rot = 25.9, 21.14, 4.73
-            self.finish_line_start = (24.94, 19.5)
-            self.finish_line_end = (27, 18.7)
-        elif t == 2:
-            self.posx, self.posy, self.rot = 25.9, 21.14, 4.73
-            self.finish_line_start = (24.94, 19.5)
-            self.finish_line_end = (27, 18.7)
-        elif t == 3:
-            self.posx, self.posy, self.rot = 27.11, 17.37, 4.9
-            self.finish_line_start = (28.33, 15.61)
-            self.finish_line_end = (26.54, 15.33)
-        elif t == 4:
-            self.posx, self.posy, self.rot = 27.31, 17.56, 4.74
-            self.finish_line_start = (28.95, 15)
-            self.finish_line_end = (26.38, 15.54)
-        elif t == 5:
-            self.posx, self.posy, self.rot = 25.58, 17.4, 4.74
-            self.finish_line_start = (24.68, 15.08)
-            self.finish_line_end = (26.45, 15.3)
-        elif t == 6:
-            self.posx, self.posy, self.rot = 11.21, 15.47, 0.013
-            self.finish_line_start = (13.24, 14.75)
-            self.finish_line_end = (13.43, 16.23)
-        self.prev_posx, self.prev_posy = self.posx, self.posy
-
-    def run(self):
-
-        self.load_settings()
-        self.track_selection()
-        self.load_resources()
-        self.start_sound.play()
-
-        while self.running:
-            print(self.posx, self.posy, self.rot)
-            pressed_keys = pg.key.get_pressed()
-            self.check_events()
-            self.surface()
-            self.check_finish_line()
-            self.car()
-            self.movement(pressed_keys)
-            self.gauge(self.width - 200, self.height - 150)
-            self.timer()
-            self.minimap()
-            pg.display.update()
-
-        pg.quit()
-
     def load_resources(self):
         size = (1024, 1024)
         self.track_border = pg.surfarray.array2d(pg.transform.scale(pg.image.load(f"resources/track/{self.track.get()}/mask.png"), size))
         self.map = pg.surfarray.array3d(pg.transform.scale(pg.image.load(f"resources/track/{self.track.get()}/track.png"), size))
-
-        self.car_images = { i: pg.image.load((f"resources/car/frame_{i:02d}.png")) for i in range(1, 10) }
         
         self.sky = pg.image.load(r"resources\env\skybox.jpg")
+
+        self.car_images = { i: pg.image.load((f"resources/car/frame_{i:02d}.png")) for i in range(1, 10) }
 
         self.start_sound = pg.mixer.Sound(r"resources\sound\start_engine.mp3")
         self.tire_screech_sound = pg.mixer.Sound(r"resources\sound\tire.mp3")
@@ -607,9 +602,11 @@ class Menu(Main):
         pg.mixer.music.set_volume(volume_level)
 
     def create_sensitivity_tab(self, tab):
-        steering_sensitivity = Scale(tab, from_=0, to=10, variable=self.steering, orient=HORIZONTAL)
-        steering_sensitivity.grid(row=0, column=1, padx=10, pady=10)
-        Label(tab, text="Steering Sensitivity", font=("Terminal", 15)).grid(row=0, column=0, sticky=W, padx=10, pady=10)
+        scale_length = self.width // 2
+ 
+        Label(tab, text="", font=("Terminal", 15)).grid(row=0, column=0, sticky=W, padx=10, pady=10)
+        Label(tab, text="Steering\nSensitivity", font=("Terminal", 15), background="white").place(x=50, y=80)
+        Scale(tab, from_=0, to=10, variable=self.steering, orient=HORIZONTAL, length=scale_length).place(x=200, y=80)
 
     def save_settings(self):
         settings = {
@@ -635,22 +632,9 @@ class Menu(Main):
         self.right_key.set(default_settings['right_key'])
         self.save_settings()
 
-    @staticmethod
     def read_default_settings():
         with open("default_settings.json", "r") as file:
             return json.load(file)
-
-    # def create_track_selection_screen(self):
-    #     self.track_selection_frame = Frame(self.root, width=self.width, height=self.height)
-        
-    #     Button(self.track_selection_frame, text="Track 1", command=lambda: self.load_game(1)).place(x=self.width//2-300, y=self.height//10)
-    #     Button(self.track_selection_frame, text="Track 2", command=lambda: self.load_game(2)).place(x=self.width//2 , y=self.height//10)
-    #     Button(self.track_selection_frame, text="Track 3", command=lambda: self.load_game(3)).place(x=self.width//2+300, y=self.height//10)
-    #     Button(self.track_selection_frame, text="Track 4", command=lambda: self.load_game(4)).place(x=self.width//2-300, y=self.height//5)
-    #     Button(self.track_selection_frame, text="Track 5", command=lambda: self.load_game(5)).place(x=self.width//2 , y=self.height//5)
-    #     Button(self.track_selection_frame, text="Track 6", command=lambda: self.load_game(6)).place(x=self.width//2+300, y=self.height//5)
-
-    #     Button(self.track_selection_frame, text="To main menu", font=("Terminal", 25), command=self.back_to_main_menu).place(x=50, y=50)
 
     def create_track_selection_screen(self):
         self.track_selection_frame = Frame(self.root, width=self.width, height=self.height)
@@ -684,21 +668,6 @@ class Menu(Main):
         self.track_selection_frame.pack_forget()
         self.cv.pack()
 
-    def create_records(self):
-        self.records_frame = Frame(self.root, width=self.width, height=self.height)
-        self.records_tab = ttk.Notebook(self.records_frame, width=self.width-300, height=self.height-200)
-        self.records_tab.place(x=140, y=130)
-
-        # Checkbox for sorting
-        self.sort_var = BooleanVar()
-        sort_checkbox = Checkbutton(self.records_frame, text="Sort by Time", variable=self.sort_var, command=self.update_all_tables)
-        sort_checkbox.place(x=self.width-700, y=50)  # Adjust position as needed
-
-        tomain = Button(self.records_frame, text="To main menu", font=("Terminal", 25), command=self.back_to_main_menu_from_records)
-        tomain.place(x=50, y=50)
-
-        self.create_record_tables()
-
     def load_records(self):
         try:
             with open("race_records.json", "r") as file:
@@ -713,8 +682,8 @@ class Menu(Main):
 
         # Checkbox for sorting
         self.sort_var = BooleanVar()
-        sort_checkbox = Checkbutton(self.records_frame, text="Sort by Time", font=("Terminal", 30), variable=self.sort_var, command=self.update_all_tables)
-        sort_checkbox.place(x=self.width - 200, y= 50)  # Adjust position as needed
+        sort_checkbox = Checkbutton(self.records_frame, text="Sort by Time", font=("Terminal", 20), variable=self.sort_var, command=self.update_all_tables)
+        sort_checkbox.place(x=self.width - 300, y= 50)  # Adjust position as needed
 
         tomain = Button(self.records_frame, text="To main menu", font=("Terminal", 25), command=self.back_to_main_menu_from_records)
         tomain.place(x=50, y=50)
