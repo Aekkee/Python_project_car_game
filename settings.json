@@ -1,1 +1,1 @@
-{"master_sound": 5, "engine_sound": 5, "tire_sound": 5, "music_sound": 5, "forward_key": "W", "left_key": "A", "right_key": "D", "backward_key": "S", "steering": 5, "track": 2, "resolution": "1368x912", "fps": false}
+{"master_sound": 6, "engine_sound": 7, "tire_sound": 5, "music_sound": 2, "forward_key": "W", "left_key": "A", "right_key": "D", "backward_key": "S", "steering": 5, "track": 1, "resolution": "1368x912", "fps": false}

@@ -43,7 +43,6 @@ class Main:
             self.backward_key.set(settings.get("backward_key","S"))
             self.steering.set(settings.get("steering"))
             self.track.set(settings.get("track", "1"))
-
             self.resolution.set(settings.get("resolution", "800x600"))
             self.show_fps.set(settings.get("fps"))
 
@@ -438,6 +437,9 @@ class Menu(Main):
         self.adjust_volume()
         self.setup_music()
 
+    def run(self):
+        self.root.mainloop()
+
     def setup_window(self):
         self.width = self.root.winfo_screenwidth()
         self.height = self.root.winfo_screenheight()
@@ -518,6 +520,14 @@ class Menu(Main):
         exit = ttk.Button(self.root, text="Exit", command=self.quit)
         exit.place(x=self.width / 2 - 250, y=750, height=100, width=500)
 
+    def start(self):
+        self.cv.pack_forget()
+        self.create_track_selection_screen()
+        self.track_selection_frame.pack()
+
+    def quit(self):
+        sys.exit()
+
     def create_setting_frame(self):
         self.setting_frame = Frame(self.root, width=self.width, height=self.height)
         self.tomain = Button(self.setting_frame, text="To main menu", font=("Terminal", 25), command=self.tomain)
@@ -539,20 +549,6 @@ class Menu(Main):
         self.tabControl.add(tab3, text="Control")
         self.tabControl.add(tab4, text="Video")
 
-    def run(self):
-        self.root.mainloop()
-
-    def AltOn(self, event):
-        self.alt = True
-
-    def AltOff(self, event):
-        self.alt = False
-
-    def changescreen(self, event):
-        if self.alt:
-            self.screen_offset = not self.screen_offset
-            self.root.attributes("-fullscreen", self.screen_offset)
-
     def to_setting(self):
         self.setting_frame.pack()
         self.cv.pack_forget()
@@ -562,9 +558,6 @@ class Menu(Main):
     def tomain(self):
         self.setting_frame.pack_forget()
         self.cv.pack()
-
-    def quit(self):
-        sys.exit()
 
     def create_graphics_tab(self, tab):
 
@@ -622,16 +615,16 @@ class Menu(Main):
         scale_length = self.width // 2
 
         Label(tab, text="Master sound", font=("Terminal", 15), background="white").grid(row=1, column=0, sticky=W, padx=10, pady=10)
-        Scale(tab, from_=0, to=10, variable=self.master_sound, orient=HORIZONTAL, length=scale_length).grid(row=1, column=0, sticky=W, padx=10, pady=10)
+        Scale(tab, from_=0, to=10, variable=self.master_sound, orient=HORIZONTAL, length=scale_length).grid(row=1, column=1, sticky=W, padx=10, pady=10)
 
         Label(tab, text="Tire sound", font=("Terminal", 15), background="white").grid(row=2, column=0, sticky=W, padx=10, pady=10)
-        Scale(tab, from_=0, to=10, variable=self.tire_sound, orient=HORIZONTAL, length=scale_length).grid(row=2, column=0, sticky=W, padx=10, pady=10)
+        Scale(tab, from_=0, to=10, variable=self.tire_sound, orient=HORIZONTAL, length=scale_length).grid(row=2, column=1, sticky=W, padx=10, pady=10)
 
         Label(tab, text="Engine sound", font=("Terminal", 15), background="white").grid(row=3, column=0, sticky=W, padx=10, pady=10)
-        Scale(tab, from_=0, to=10, variable=self.engine_sound, orient=HORIZONTAL, length=scale_length).grid(row=3, column=0, sticky=W, padx=10, pady=10)
+        Scale(tab, from_=0, to=10, variable=self.engine_sound, orient=HORIZONTAL, length=scale_length).grid(row=3, column=1, sticky=W, padx=10, pady=10)
 
         Label(tab, text="Music", font=("Terminal", 15), background="white").grid(row=4, column=0, sticky=W, padx=10, pady=10)
-        Scale(tab, from_=0, to=10, variable=self.music_sound, orient=HORIZONTAL, length=scale_length).grid(row=4, column=0, sticky=W, padx=10, pady=10)
+        Scale(tab, from_=0, to=10, variable=self.music_sound, orient=HORIZONTAL, length=scale_length).grid(row=4, column=1, sticky=W, padx=10, pady=10)
 
         Button(tab, text="Reset to Default", command=self.reset_sounds_to_default).grid(row=5, column=0, sticky=W, padx=10, pady=10)
 
@@ -642,9 +635,10 @@ class Menu(Main):
     def create_sensitivity_tab(self, tab):
         scale_length = self.width // 2
  
-        Label(tab, text="", font=("Terminal", 15)).grid(row=0, column=0, sticky=W, padx=10, pady=10)
-        Label(tab, text="Steering\nSensitivity", font=("Terminal", 15), background="white").place(x=50, y=80)
-        Scale(tab, from_=0, to=10, variable=self.steering, orient=HORIZONTAL, length=scale_length).place(x=200, y=80)
+        Label(tab, text="Steering\nSensitivity", font=("Terminal", 15), background="white").grid(row=1, column=0, sticky=W, padx=10, pady=10)
+        Scale(tab, from_=0, to=10, variable=self.steering, orient=HORIZONTAL, length=scale_length).grid(row=1, column=1, sticky=W, padx=10, pady=10)
+
+        Button(tab, text="Reset to Default", command=self.reset_sen_to_default).grid(row=2, column=0, sticky=W, padx=10, pady=10)
 
     def create_track_selection_screen(self):
         self.track_selection_frame = Frame(self.root, width=self.width, height=self.height)
@@ -663,11 +657,6 @@ class Menu(Main):
             Button(self.track_selection_frame, image=img, command=lambda track_no=i: self.load_game(track_no)).place(x=self.width // 2 - 500 + (i-1)%3 * 400, y=self.height // 10 + offset)
 
         Button(self.track_selection_frame, text="To main menu", font=("Terminal", 25), command=self.back_to_main_menu).place(x=50, y=50)
-    
-    def start(self):
-        self.cv.pack_forget()
-        self.create_track_selection_screen()
-        self.track_selection_frame.pack()
 
     def load_game(self, track_no):
         self.track.set(track_no)
@@ -792,21 +781,29 @@ class Menu(Main):
             self.show_fps.set(default_settings["fps"])
             self.save_settings()
 
+    def reset_sen_to_default(self):
+        default_settings = self.read_default_settings()
+        if default_settings:
+            self.steering.set(default_settings["steering"])
+            self.save_settings()
+
     def reset_key_bindings_to_default(self):
         default_settings = self.read_default_settings()
-        self.forward_key.set(default_settings['forward_key'])
-        self.left_key.set(default_settings['left_key'])
-        self.backward_key.set(default_settings['backward_key'])
-        self.right_key.set(default_settings['right_key'])
-        self.save_settings()
+        if default_settings:
+            self.forward_key.set(default_settings['forward_key'])
+            self.left_key.set(default_settings['left_key'])
+            self.backward_key.set(default_settings['backward_key'])
+            self.right_key.set(default_settings['right_key'])
+            self.save_settings()
         
     def reset_sounds_to_default(self):
         default_settings = self.read_default_settings()
-        self.master_sound.set(default_settings["master_sound"])
-        self.tire_sound.set(default_settings["tire_sound"])
-        self.music_sound.set(default_settings["music_sound"])
-        self.engine_sound.set(default_settings["engine_sound"])
-        self.save_settings()
+        if default_settings:
+            self.master_sound.set(default_settings["master_sound"])
+            self.tire_sound.set(default_settings["tire_sound"])
+            self.music_sound.set(default_settings["music_sound"])
+            self.engine_sound.set(default_settings["engine_sound"])
+            self.save_settings()
 
 if __name__ == "__main__":
     
